@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Encuesta Firebase</title>
+<style>
+  /* Reset básico */
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .container {
+    background: white;
+    padding: 2rem 3rem;
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    max-width: 400px;
+    width: 100%;
+  }
+  h2 {
+    text-align: center;
+    color: #333;
+    margin-bottom: 1.5rem;
+  }
+  form > div {
+    margin-bottom: 1.2rem;
+  }
+  label {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-weight: 600;
+    color: #555;
+  }
+  input, select {
+    width: 100%;
+    padding: 0.6rem 0.8rem;
+    border-radius: 6px;
+    border: 1.5px solid #ddd;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+  }
+  input:focus, select:focus {
+    border-color: #667eea;
+    outline: none;
+  }
+  button {
+    width: 100%;
+    padding: 0.8rem;
+    background-color: #667eea;
+    border: none;
+    color: white;
+    font-weight: 700;
+    font-size: 1.1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  button:hover {
+    background-color: #5a67d8;
+  }
+  .message {
+    text-align: center;
+    margin-top: 1rem;
+    font-weight: 600;
+  }
+  .message.success {
+    color: green;
+  }
+  .message.error {
+    color: red;
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h2>Encuesta de contacto</h2>
+    <form id="surveyForm">
+      <div>
+        <label for="country">País</label>
+        <select id="country" required>
+          <option value="" disabled selected>Selecciona un país</option>
+          <option value="Argentina">Argentina</option>
+          <option value="México">México</option>
+          <option value="España">España</option>
+          <option value="Colombia">Colombia</option>
+          <option value="Chile">Chile</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+      <div>
+        <label for="phone">Número de teléfono</label>
+        <input type="tel" id="phone" placeholder="+54 9 11 1234 5678" pattern="[\d+\s\-]+" required />
+      </div>
+      <div>
+        <label for="address">Dirección</label>
+        <input type="text" id="address" placeholder="Calle, número, piso, depto..." required />
+      </div>
+      <div>
+        <label for="state">Provincia / Estado</label>
+        <input type="text" id="state" placeholder="Provincia o estado" required />
+      </div>
+      <div>
+        <label for="zip">Código postal</label>
+        <input type="text" id="zip" placeholder="Código postal" required pattern="\d+" />
+      </div>
+      <div>
+        <label for="city">Ciudad</label>
+        <input type="text" id="city" placeholder="Ciudad" required />
+      </div>
+      <button type="submit">Enviar</button>
+      <div id="msg" class="message"></div>
+    </form>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import { getDatabase, ref, push, set } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDQt9avVUioRrlUjKoysYZ-l5ODFmWkTyA",
+      authDomain: "maxcraftrapid.firebaseapp.com",
+      databaseURL: "https://maxcraftrapid-default-rtdb.firebaseio.com", // <-- Realtime DB URL (modifícalo si es distinto)
+      projectId: "maxcraftrapid",
+      storageBucket: "maxcraftrapid.firebasestorage.app",
+      messagingSenderId: "685071462019",
+      appId: "1:685071462019:web:fa207751f93a053737f5b6"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const form = document.getElementById('surveyForm');
+    const msgDiv = document.getElementById('msg');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msgDiv.textContent = "";
+      msgDiv.className = "message";
+
+      const data = {
+        country: form.country.value,
+        phone: form.phone.value.trim(),
+        address: form.address.value.trim(),
+        state: form.state.value.trim(),
+        zip: form.zip.value.trim(),
+        city: form.city.value.trim(),
+        timestamp: new Date().toISOString()
+      };
+
+      // Validación extra rápida para teléfono (solo números, espacios, + y -)
+      const phoneRegex = /^[\d+\s\-]+$/;
+      if (!phoneRegex.test(data.phone)) {
+        msgDiv.textContent = "Número de teléfono inválido.";
+        msgDiv.classList.add("error");
+        return;
+      }
+
+      try {
+        // Guardamos bajo una referencia 'encuestas' y hacemos push para que cree un ID único
+        const encuestasRef = ref(db, 'encuestas');
+        const newEncuestaRef = push(encuestasRef);
+        await set(newEncuestaRef, data);
+
+        msgDiv.textContent = "¡Gracias! Tu encuesta ha sido enviada.";
+        msgDiv.classList.add("success");
+        form.reset();
+      } catch (error) {
+        console.error(error);
+        msgDiv.textContent = "Hubo un error al enviar la encuesta.";
+        msgDiv.classList.add("error");
+      }
+    });
+  </script>
+</body>
+</html>
